@@ -23,9 +23,22 @@ CALL {
 } IN TRANSACTIONS;
 
 
-MATCH (a:Author), (p:Paper)
-WHERE any(doi IN a.author_doi WHERE doi = p.doi)
-MERGE (a)-[:WROTE]->(p);
+// This is inefficient, giving java heap space error
+// MATCH (a:Author), (p:Paper)
+// WHERE any(doi IN a.author_doi WHERE doi = p.doi)
+// MERGE (a)-[:WROTE]->(p);
+// This is more efficient, but still giving java heap space error
+// MATCH (a:Author)
+// UNWIND a.author_doi AS doi
+// MATCH (p:Paper {doi: doi})
+// MERGE (a)-[:WROTE]->(p);
+CALL apoc.periodic.iterate(
+    "MATCH (a:Author) WHERE size(a.author_doi) > 0 RETURN a",
+    "UNWIND a.author_doi AS doi
+     MATCH (p:Paper {doi: doi})
+     MERGE (a)-[:WROTE]->(p)",
+    {batchSize: 1000, parallel: false}
+);
 
 
 :auto LOAD CSV WITH HEADERS FROM "file:///references.csv" AS row
@@ -33,7 +46,7 @@ WITH row
 WHERE row.paper_doi IS NOT NULL AND row.reference_doi IS NOT NULL
 CALL {
     WITH row
-    MATCH (p1:Paper {doi: row.paper_doi})
-    MATCH (p2:Paper {doi: row.reference_doi})
+    OPTIONAL MATCH (p1:Paper {doi: row.paper_doi})
+    OPTIONAL MATCH (p2:Paper {doi: row.reference_doi})
     MERGE (p1)-[:CITES]->(p2)
 } IN TRANSACTIONS;
