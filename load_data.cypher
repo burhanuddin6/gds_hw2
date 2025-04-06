@@ -46,7 +46,7 @@ WITH row
 WHERE row.paper_doi IS NOT NULL AND row.reference_doi IS NOT NULL
 CALL {
     WITH row
-    OPTIONAL MATCH (p1:Paper {doi: row.paper_doi})
-    OPTIONAL MATCH (p2:Paper {doi: row.reference_doi})
+    MATCH (p1:Paper {doi: row.paper_doi})
+    MATCH (p2:Paper {doi: row.reference_doi})
     MERGE (p1)-[:CITES]->(p2)
 } IN TRANSACTIONS;
