@@ -432,12 +432,85 @@ Lets see scc 10484
 ![alt text](image-1.png)
 
 ### 11 Are there any papers that act as critical connectors between highly cited sub-networks?
-To this we can use betweennness centrality
+To this we can use betweennness centrality on citationGraph project. Since the graph is large, we will use sampling for efficiency.
 
 ```cypher
 CALL gds.betweenness.write('citationGraph', {
-  writeProperty: 'betweenness'
+  writeProperty: 'betweenness',
+  concurrency: 4
 })
 YIELD nodePropertiesWritten
+```
+
+To check what papers are highly connected, we can can use the betweenness centrality to filter which nodes have a higher chance of connecting more subnetworks. Note that the betweenness centrality does not answer the question of identifying connectors for highly cited subnetworks. It only gives us a list of papers that are highly connected in the network to give us a sense of which papers are more likely to be connectors. Then in order to actually check if they are connectors, we can check if they have a high number connections to different strongly connected components. The reason for choosing scc is that we saw in previous analysis that all papers in scc have some citation path, due to which scc can also be interpreted as highly cited subnetworks.
+```
+MATCH (p1:Paper)-[:CITES]->(p2:Paper)
+WHERE p1.scc <> p2.scc AND p1.betweenness > 10000
+WITH p1 as potential
+OPTIONAL MATCH (diff_neighbors :Paper)-[:CITES]-(potential)
+WHERE diff_neighbors.scc <> potential.scc
+RETURN potential.title, count(distinct diff_neighbors) as highly_connected_subnetworks_count
+ORDER BY highly_connected_subnetworks_count DESC
+```
 
 ```
+╒══════════════════════════════════════════════════════════════════════╤══════════════════════════════════╕
+│potential.title                                                       │highly_connected_subnetworks_count│
+╞══════════════════════════════════════════════════════════════════════╪══════════════════════════════════╡
+│"Conceptualizing Simultaneity: A Transnational Social Field Perspectiv│423                               │
+│e on Society 1"                                                       │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Theories of international migration: a review and appraisal."        │369                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"The study of transnationalism: pitfalls and promise of an emergent re│359                               │
+│search field"                                                         │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Rethinking Assimilation Theory for a New Era of Immigration 1"       │343                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Super-diversity and its implications"                                │337                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Editorial: Mobilities, Immobilities and Moorings"                    │314                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Refugee Research Bibliography"                                       │279                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Family and Personal Networks in International Migration: Recent Devel│263                               │
+│opments and New Agendas 1"                                            │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Changing Images of Refugees: A Comparative Analysis of Australian and│260                               │
+│ New Zealand Print Media 1998−2008"                                   │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"The Economic Returns of Immigrants’ Bonding and Bridging Social Capit│249                               │
+│al: The Case of the Netherlands 1"                                    │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Segmented Assimilation: Issues, Controversies, and Recent Research on│235                               │
+│ the New Second Generation 1"                                         │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Whose culture has capital? A critical race theory discussion of commu│233                               │
+│nity cultural wealth"                                                 │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Conceiving and Researching Transnationalism"                         │221                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Constructs, measurements and models of acculturation and acculturativ│220                               │
+│e stress"                                                             │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Bright vs. blurred boundaries: Second-generation assimilation and exc│214                               │
+│lusion in France, Germany, and the United States"                     │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Methodological Nationalism, the Social Sciences, and the Study of Mig│206                               │
+│ration: An Essay in Historical Epistemology 1"                        │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Symbolic ethnicity: The future of ethnic groups and cultures in Ameri│202                               │
+│ca*"                                                                  │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Regimes of Mobility Across the Globe"                                │193                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Central Themes in the Study of Transnational Parenthood"             │187                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Gender Matters: Ethnographers Bring Gender from the Periphery toward │180                               │
+│the Core of Migration Studies"                                        │                                  │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+│"Immigrants and Demography: Marriage, Divorce, and Fertility"         │178                               │
+├──────────────────────────────────────────────────────────────────────┼──────────────────────────────────┤
+
+```
+
